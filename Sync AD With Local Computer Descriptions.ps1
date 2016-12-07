@@ -48,15 +48,15 @@ If ($(Get-Module | ? {$_.Name -eq "ActiveDirectory"} | Measure).Count -eq 0) {
 }
 
 
-Function Set-ADComputerDescription {
+Function Set-ADComputerDescription {## Update AD & write the results to the console
     [CmdletBinding()] Param
     (
         [Parameter(Mandatory=$True)]          $updateList,
         [Parameter(Mandatory=$False)] [String]$activity = "Updating AD computer descriptions"
     )
-    
+
     ForEach ($computer In $updateList) {
-        If ($computer[0] -eq $Null) {
+        If ($computer[0] -eq $Null) {## Make sure we aren't trying to process a blank entry, which is sometimes needed due to weird handling of arrays in PS
             Continue
         }
 
@@ -64,15 +64,15 @@ Function Set-ADComputerDescription {
             Write-Host "Attempting to update on AD the description of $($computer[0]) to '$($computer[2])'" -ForegroundColor Yellow -BackgroundColor Black
             Write-Progress -Activity $activity -Status "Attempting to update on AD the description of $($computer[0]) to '$($computer[2])'" -PercentComplete ($i / $updateCount * 100)
 
-            Set-ADComputer $computer[0] -Description "$($computer[2])" -Verbose -WhatIf
+            Set-ADComputer $computer[0] -Description "$($computer[2])" -Verbose -WhatIf -ErrorAction Continue
         } Else {## Perform the AD update
             Write-Host "Attempting to update on AD the description of $($computer[0]) to '$($computer[2])'" -ForegroundColor Yellow -BackgroundColor Black
             Write-Progress -Activity $activity -Status "Attempting to update on AD the description of $($computer[0]) to '$($computer[2])'" -PercentComplete ($i / $updateCount * 100)
 
-            Set-ADComputer $computer[0] -Description "$($computer[2])" -Verbose
+            Set-ADComputer $computer[0] -Description "$($computer[2])" -Verbose -ErrorAction Continue
         }
 
-        ## Check last operation succeeded and pull AD description to compare to what we just changed it to
+        ## Verify last operation succeeded and compare current AD description to desired new description
         If (($?) -And ($(Get-ADComputer -Identity $computer[0] -Property Description) -eq $computer[2])) {
             Write-Host "Successfully updated AD description of $($computer[0])`n" -ForegroundColor Green -BackgroundColor Black
         } ElseIf ($Testing) {
