@@ -21,7 +21,6 @@
 ## Set this to $False to live the script and remove the -WhatIf flag from AD commands
 $Testing        = $True
 $LogFile        = "$($PSScriptRoot)\Sync computer description with AD-$(Get-Date -format "yyyy-MM-dd-HHmmss").log"
-$EmailResults   = $False
 ## End of user-configurable variables
 
 
@@ -134,7 +133,7 @@ ForEach ($computer in $Computers) {
     Write-Debug "Iterating `$computer=$($computer.Name) in `$Computers"
 
     If ($Testing) {## Dummy data for testing
-        $localComputer = @{Description='Test AD description data'}
+        $localComputer = @{Description='$Testing=$True, this is a fake AD description'}
     } Else {## Get the system description from the computer. Requires an AD account with sufficient permissions.
         $localComputer = Get-WmiObject -class Win32_OperatingSystem -Credential $CredentialLocal -ComputerName $computer.Name -Property Description -ErrorAction Continue
     }
