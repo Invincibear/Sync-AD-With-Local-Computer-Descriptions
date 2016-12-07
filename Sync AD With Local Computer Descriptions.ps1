@@ -42,7 +42,7 @@ Start-Transcript -Path $LogFile -Force
 
 ## Load ActiveDirectory module if it isn't already loaded
 If ($(Get-Module | ? {$_.Name -eq "ActiveDirectory"} | Measure).Count -eq 0) {
-    Write-Host "Loading the Active Directory PowerShell module"
+    Write-Host 'Loading the Active Directory PowerShell module'
 
     Import-Module ActiveDirectory
 }
@@ -88,6 +88,11 @@ Function Set-ADComputerDescription {
 
 
 Write-Host ''
+
+If ($Testing) {
+    Write-Warning 'Testing mode is enabled, no actual changes will be made to AD and dummy data will be used instead of querying computers for their system descriptions'
+}
+
 Write-Host "Search for computers in AD named: (case insensitive, use * for wildcards) eg: *NTBK*, SURWKS*, LAPTOP001" -NoNewline -ForegroundColor Yellow
 $searchTerm  = Read-Host -Prompt ' '
 
