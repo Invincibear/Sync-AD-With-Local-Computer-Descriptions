@@ -119,7 +119,7 @@ If ($CredentialAD) {## Uses the user-entered credentials
 $ComputersCount = $($Computers | Measure).Count
 
 If ($ComputersCount -eq 0) {
-    Write-Host "There were no computers found in AD matching computer name search term '$searchTerm'" -ForegroundColor Red -BackgroundColor Black
+    Write-Host "No computers found in AD matching computer name search term '$searchTerm'" -ForegroundColor Red -BackgroundColor Black
     Write-Host ''
     Stop-Transcript
 
