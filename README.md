@@ -6,7 +6,7 @@ Searches AD for computers, queries each computer for their system description, u
 
     .DESCRIPTION
     Enter credentials used to search AD, and same or different credentials to connect to each resulting computer.
-    Searches AD for computer objects in matching the input search term, connects & pulls each of the resulting computers'  system descriptions for comparison in a displayed table.
+    Searches AD for computer objects in matching the input search term, connects & pulls each of the resulting computers' system descriptions for comparison in a displayed table.
     
     Options
     [1] Update AD with ALL non-empty local system descriptions matching the entered AD computer name search term
