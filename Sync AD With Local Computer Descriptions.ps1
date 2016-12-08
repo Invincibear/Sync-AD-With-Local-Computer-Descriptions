@@ -2,14 +2,13 @@
 [CmdletBinding()]
 Param()
 
-
 <#
     .Synopsis
     This script Synchronizes computer descriptions in Active Directory with their corresponding local system description.
 
     .DESCRIPTION
     Enter credentials used to search AD, and same or different credentials to connect to each resulting computer.
-    Searches AD for computer objects in AD matching the search term input, connects to each of the resulting computers to pull their system descriptions and compares them in a displayed table.
+    Searches AD for computer objects in matching the input search term, connects & pulls each of the resulting computers'  system descriptions for comparison in a displayed table.
     
     Options
     [1] Update AD with ALL non-empty local system descriptions matching the entered AD computer name search term
@@ -39,7 +38,6 @@ $ErrorActionPreference = "SilentlyContinue"
 Stop-Transcript | Out-Null
 $ErrorActionPreference = "Continue"
 Start-Transcript -Path $LogFile -Force
-
 
 ## Load ActiveDirectory module if it isn't already loaded
 If ($(Get-Module | ? {$_.Name -eq "ActiveDirectory"} | Measure).Count -eq 0) {
@@ -88,12 +86,12 @@ Function Set-ADComputerDescription {## Update AD & write the results to the cons
         }
 
         ## Verify last operation succeeded and compare current AD description to desired new description
-        If (($?) -And ($(Get-ADComputer -Identity $computer[0] -Property Description) -eq $computer[2])) {
-            Write-Host "Successfully updated AD description of $($computer[0])`n" -ForegroundColor Green -BackgroundColor Black
+        If (($?) -And ($(Get-ADComputer -Identity $computer[0] -Property 'Description') -eq $computer[2])) {
+            Write-Host "Successfully updated AD description of $($computer[0])`n" -ForegroundColor 'Green' -BackgroundColor 'Black'
         } ElseIf ($Testing) {
-            Write-Host 'Testing mode enabled, no changes to AD were performed' -ForegroundColor Yellow -BackgroundColor Black
+            Write-Host 'Testing mode enabled, no changes to AD were performed' -ForegroundColor 'Yellow' -BackgroundColor 'Black'
         } Else {
-            Write-Host "WARNING: Failed to Update AD description of $($computer[0])`n" -ForegroundColor Red -BackgroundColor Black
+            Write-Host "WARNING: Failed to Update AD description of $($computer[0])`n" -ForegroundColor 'Red' -BackgroundColor 'Black'
         }
 
         Write-Progress -Activity $activity -PercentComplete ($i++ / $updateCount * 100)
@@ -107,12 +105,12 @@ If ($Testing) {
     Write-Warning 'Testing mode is enabled, no actual changes will be made to AD and dummy data will be used instead of querying computers for their system descriptions'
 }
 
-Write-Host "Search for computers in AD named: (case insensitive, use * for wildcards) eg: *NTBK*, SURWKS*, LAPTOP001" -NoNewline -ForegroundColor Yellow
-$searchTerm  = Read-Host -Prompt ' '
+Write-Host "Search for computers in AD named: (case insensitive, use * for wildcards) eg: *NTBK*, SURWKS*, LAPTOP001" -NoNewline -ForegroundColor 'Yellow'
+$searchTerm = Read-Host -Prompt ' '
 
 If (-Not $searchTerm) {## A search term is required
     Write-Host ''
-    Write-Host 'ERROR: Please enter a computer name search term' -ForegroundColor Red -BackgroundColor Black
+    Write-Host 'ERROR: Please enter a computer name search term' -ForegroundColor 'Red' -BackgroundColor 'Black'
     Write-Host ''
     Stop-Transcript
 
@@ -120,38 +118,46 @@ If (-Not $searchTerm) {## A search term is required
 }
 
 
-$CredentialAD   = Get-Credential -ErrorAction SilentlyContinue -Message "Enter the credentials that will be used to search AD.`
-Your credentials will not be saved.`
+$CredentialTailSplat = "Your credentials will not be saved.`
 Press Esc to use the current credentials used to execute this script."
-$CredentialLocal= Get-Credential -ErrorAction SilentlyContinue -Message "Enter the credentials that will be used to connect to search AD for the computers and to connect to the computers to retrieve their local system descriptions.`
-Your credentials will not be saved.`
-Press Esc to use the current credentials used to execute this script."
+$CredentialADSplat = @{
+    'ErrorAction' = 'SilentlyContinue';
+    'Message' = "Enter the credentials that will be used to search AD.`
+$CredentialTailSplat"
+}
+$CredentialLocalSplat = @{
+    'ErrorAction' = 'SilentlyContinue';
+    'Message' = "Enter the credentials that will be used to connect to search AD for the computers and to connect to the computers to retrieve their local system descriptions.`
+$CredentialTailSplat"
+}
+
+$CredentialAD = Get-Credential @CredentialADSplat 
+$CredentialLocal = Get-Credential @CredentialLocalSplat
 
 If ($CredentialAD) {## Uses the user-entered credentials
-    $Computers  = Get-ADComputer -Credential $CredentialAD -Filter "Name -like '$($searchTerm)'" -Property Description
+    $ADComputers = Get-ADComputer -Credential $CredentialAD -Filter "Name -like '$searchTerm'" -Property 'Description'
 } Else {## Uses the POSH RunAs credentials
-    $Computers  = Get-ADComputer -Filter "Name -like '$($searchTerm)'" -Property Description
+    $ADComputers = Get-ADComputer -Filter "Name -like '$searchTerm'" -Property 'Description'
 }
 
-$ComputersCount = $($Computers | Measure).Count
+$ADComputersCount = $($ADComputers | Measure).Count
 
-If ($ComputersCount -eq 0) {
-    Write-Host "No computers found in AD matching computer name search term '$searchTerm'" -ForegroundColor Red -BackgroundColor Black
+If ($ADComputersCount -eq 0) {
+    Write-Host "No computers found in AD matching computer name search term '$searchTerm'" -ForegroundColor 'Red' -BackgroundColor 'Black'
     Write-Host ''
     Stop-Transcript
 
     Exit
 }
-
 
 $compareList = @()
 $compareList+= ,('Computer Name', 'AD Description', 'Local Description')## Insert table headers
 
-ForEach ($computer in $Computers) {
-    Write-Debug "Iterating `$computer=$($computer.Name) in `$Computers"
+ForEach ($computer in $ADComputers) {
+    Write-Debug "Iterating `$computer=$($computer.Name) in `$ADComputers"
 
     If ($Testing) {## Dummy data for testing
-        $localComputer = @{Description='$Testing=$True, this is a fake AD description'}
+        $localComputer = @{'Description' = '$Testing=$True, this is a fake AD description'}
     } Else {## Get the system description from the computer. Requires an AD account with sufficient permissions.
         $localComputerSplat = @{
             'class' = 'Win32_OperatingSystem';
@@ -191,19 +197,16 @@ ForEach ($computer in $Computers) {
 
 ## Output list of computres in a pretty-looking table
 Write-Host ''
-Write-Host "Displaying $ComputersCount search result" -NoNewline
-If ($ComputersCount -ne 1) {
-    Write-Host "s" -NoNewline
-}
-Write-Host " for '$searchTerm'"
+Write-Host "Displaying $ADComputersCount search result$(If ($ADComputersCount -ne 1) {'s'}) for '$searchTerm'"
 $compareList | % {$_ -Join '|'} | ConvertFrom-Csv -Delimiter '|' | Format-Table -AutoSize -Wrap
 
-## Build new array from previous computer list, Skip first row (contained table headers and not actual computer data), Select only computers with non-empty local system description fields that don't match the AD description
-$updateList     = @($compareList | Select -Skip 1 | ? {(($_[2]) -and ($_[1] -notmatch $_[2]))})
-$updateCount    = $($updateList | Measure).Count
+## Build new array from previous computer list, Skip first row (contained table headers and not actual computer data), 
+## Select only computers with non-empty local system description fields that don't match the AD description
+$updateList = @($compareList | Select -Skip 1 | ? {(($_[2]) -and ($_[1] -notmatch $_[2]))})
+$updateCount = $($updateList | Measure).Count
 
 If ($updateCount -eq 0) {
-    Write-Host "The resulting computers' descriptions are already synchronized with AD. No further action is needed." -ForegroundColor Green
+    Write-Host "The resulting computers' descriptions are already synchronized with AD. No further action is needed." -ForegroundColor 'Green'
     Write-Host ''
     Stop-Transcript
 
@@ -211,40 +214,43 @@ If ($updateCount -eq 0) {
 }
 
 Write-Host "How would you like to update $updateCount AD system descriptions? (" -NoNewline
-Write-Host '* denotes default option' -NoNewline -ForegroundColor Green
+Write-Host '* denotes default option' -NoNewline -ForegroundColor 'Green'
 Write-Host ')'
-Write-Host '  [1] Update AD with ALL of the above non-empty local system descriptions' -ForegroundColor Yellow
-Write-Host '  [2] Manually approve each update one at a time' -ForegroundColor Yellow
-Write-Host ' *[Q] ' -NoNewline -ForegroundColor Green
-Write-Host 'Quit--update nothing and exit this script' -ForegroundColor Yellow
-Write-Host 'Select Option' -NoNewline -ForegroundColor Yellow
+Write-Host '  [1] Update AD with ALL of the above non-empty local system descriptions' -ForegroundColor 'Yellow'
+Write-Host '  [2] Manually approve each update one at a time' -ForegroundColor 'Yellow'
+Write-Host ' *[Q] ' -NoNewline -ForegroundColor 'Green'
+Write-Host 'Quit--update nothing and exit this script' -ForegroundColor 'Yellow'
+Write-Host 'Select Option' -NoNewline -ForegroundColor 'Yellow'
+
 $updateMethod = Read-Host -Prompt ' '
+$updateMethodMsg = "Selected option [$updateMethod]"
+$activity = "Updating $updateCount computers' AD description entries with non-empty and non-matching local system descriptions"
+$quitMsg = @{
+    'object' = '[Q]uiting script';
+    'ForegroundColor' = 'Red';
+    'BackgroundColor' = 'Black'
+}
+$i = 1;
 
 Switch ($updateMethod) {
     Default {
-        Write-Host '[Q]uitting script' -ForegroundColor Red -BackgroundColor Black
+        Write-Host @quitMsg
         Write-Host ''
         Stop-Transcript
 
         Exit
     }
     '1' {
-        Write-Host 'Selected option [1]'
-
-        $i = 1;
-        $activity = "Updating $($updateCount) computers' AD description entries with non-empty and non-matching local system descriptions"
+        Write-Host $updateMethodMsg
         Write-Progress -Activity $activity -Status "Progress:" -PercentComplete ($i / $updateCount * 100)
         Write-Host "$activity`n"
 
         Set-ADComputerDescription $updateList $activity
     }
     '2' {
-        Write-Host 'Selected option [2]'
-
-        $i = 1;
-        $activity = "Updating $($updateCount) computers' AD description entries with non-empty and non-matching local system descriptions one at a time requiring manual input"
+        Write-Host $updateMethodMsg
         Write-Progress -Activity $activity -Status "Progress:" -PercentComplete ($i / $updateCount * 100)
-        Write-Host "$activity`n"
+        Write-Host "$activity one at a time requiring manual input`n"
 
         ForEach ($computer In $updateList) {
             $fields = @()
@@ -253,32 +259,32 @@ Switch ($updateMethod) {
             $fields | % {$_ -Join '|'} | ConvertFrom-Csv -Delimiter '|' | Format-Table -AutoSize -Wrap
 
             Write-Host "Do you want to update the AD description of $($computer[0]) to '$($computer[2])'?" -NoNewline
-            Write-Host ' [Y]es' -ForegroundColor Yellow -NoNewline
+            Write-Host ' [Y]es' -ForegroundColor 'Yellow' -NoNewline
             Write-Host ', default: ' -NoNewline
-            Write-Host '[N]o' -NoNewline -ForegroundColor Green
+            Write-Host '[N]o' -NoNewline -ForegroundColor 'Green'
             Write-Host ', or' -NoNewline
-            Write-Host ' [Q]uit' -ForegroundColor Red -NoNewline
+            Write-Host ' [Q]uit' -ForegroundColor 'Red' -NoNewline
             $updateComputer = Read-Host -Prompt ' '
 
             If ($updateComputer -like 'q*') {
-                Write-Host '[Q]uiting script' -ForegroundColor Red -BackgroundColor Black
+                Write-Host @quitMsg
                 Write-Host ''
                 Stop-Transcript
 
                 Exit
             }
-            If ($updateComputer -notmatch 'y|yes') {# Skip this entry if they answered anything except yes
+            If ($updateComputer -notmatch 'y|yes') {## Skip this entry if they answered anything except yes
                 Write-Host "`n`n`n"
 
                 Continue
             }
 
-            Set-ADComputerDescription @(@($updateList[$i][0], $updateList[$i][1], $updateList[$i][2]), @()) $activity
+            Set-ADComputerDescription @(@($computer[0], $computer[1], $computer[2]), @()) $activity
 
             Write-Host "`n`n`n"
         }
     }
 }
 
-Write-Host "Finished iterating through list of local computer descriptions with which to update AD`n" -ForegroundColor Green
+Write-Host "Finished iterating through list of local computer descriptions with which to update AD`n" -ForegroundColor 'Green'
 Stop-Transcript
