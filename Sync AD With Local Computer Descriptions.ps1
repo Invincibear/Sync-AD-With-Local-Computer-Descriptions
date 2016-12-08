@@ -1,10 +1,11 @@
 #requires -RunAsAdministrator
-[CmdletBinding()]param()
+[CmdletBinding()]
+Param()
 
 
 <#
     .Synopsis
-    This script will facilitate synchronizing computer descriptions in Active Directory with the system descriptions stored on each individual computer which by design, are not used by AD.
+    This script Synchronizes computer descriptions in Active Directory with their corresponding local system description.
 
     .DESCRIPTION
     Enter credentials used to search AD, and same or different credentials to connect to each resulting computer.
@@ -19,8 +20,8 @@
 #>
 
 ## Set this to $False to live the script and remove the -WhatIf flag from AD commands
-$Testing        = $True
-$LogFile        = "$($PSScriptRoot)\Sync computer description with AD-$(Get-Date -format "yyyy-MM-dd-HHmmss").log"
+$Testing = $True
+$LogFile = "$($PSScriptRoot)\logs\Sync computer description with AD-$(Get-Date -format "yyyy-MM-dd-HHmmss").log"
 ## End of user-configurable variables
 
 
@@ -49,10 +50,13 @@ If ($(Get-Module | ? {$_.Name -eq "ActiveDirectory"} | Measure).Count -eq 0) {
 
 
 Function Set-ADComputerDescription {## Update AD & write the results to the console
-    [CmdletBinding()] Param
-    (
-        [Parameter(Mandatory=$True)]          $updateList,
-        [Parameter(Mandatory=$False)] [String]$activity = "Updating AD computer descriptions"
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory=$True)]
+            $updateList,
+        [Parameter(Mandatory=$False)]
+            [String]
+            $activity = "Updating AD computer descriptions"
     )
 
     ForEach ($computer In $updateList) {
@@ -60,14 +64,25 @@ Function Set-ADComputerDescription {## Update AD & write the results to the cons
             Continue
         }
 
+        $updateAttemptMsg = @{
+            'Object' = "Attempting to update on AD the description of $($computer[0]) to '$($computer[2])'";
+            'ForegroundColor' = 'Yellow';
+            'BackgroundColor' = 'Black'
+        }
+        $updateProgress = @{
+            'Activity' = $activity;
+            'Status' = "Attempting to update on AD the description of $($computer[0]) to '$($computer[2])'";
+            'PercentComplete' = ($i / $updateCount * 100)
+        }
+
         If ($Testing) {## Simulate the AD update
-            Write-Host "Attempting to update on AD the description of $($computer[0]) to '$($computer[2])'" -ForegroundColor Yellow -BackgroundColor Black
-            Write-Progress -Activity $activity -Status "Attempting to update on AD the description of $($computer[0]) to '$($computer[2])'" -PercentComplete ($i / $updateCount * 100)
+            Write-Host @updateAttemptMsg
+            Write-Progress @updateProgress
 
             Set-ADComputer $computer[0] -Description "$($computer[2])" -Verbose -WhatIf -ErrorAction Continue
         } Else {## Perform the AD update
-            Write-Host "Attempting to update on AD the description of $($computer[0]) to '$($computer[2])'" -ForegroundColor Yellow -BackgroundColor Black
-            Write-Progress -Activity $activity -Status "Attempting to update on AD the description of $($computer[0]) to '$($computer[2])'" -PercentComplete ($i / $updateCount * 100)
+            Write-Host @updateAttemptMsg
+            Write-Progress @updateProgress
 
             Set-ADComputer $computer[0] -Description "$($computer[2])" -Verbose -ErrorAction Continue
         }
@@ -83,11 +98,10 @@ Function Set-ADComputerDescription {## Update AD & write the results to the cons
 
         Write-Progress -Activity $activity -PercentComplete ($i++ / $updateCount * 100)
     }
+
+    Write-Host ''
 }
 
-
-
-Write-Host ''
 
 If ($Testing) {
     Write-Warning 'Testing mode is enabled, no actual changes will be made to AD and dummy data will be used instead of querying computers for their system descriptions'
@@ -119,7 +133,6 @@ If ($CredentialAD) {## Uses the user-entered credentials
     $Computers  = Get-ADComputer -Filter "Name -like '$($searchTerm)'" -Property Description
 }
 
-
 $ComputersCount = $($Computers | Measure).Count
 
 If ($ComputersCount -eq 0) {
@@ -140,7 +153,14 @@ ForEach ($computer in $Computers) {
     If ($Testing) {## Dummy data for testing
         $localComputer = @{Description='$Testing=$True, this is a fake AD description'}
     } Else {## Get the system description from the computer. Requires an AD account with sufficient permissions.
-        $localComputer = Get-WmiObject -class Win32_OperatingSystem -Credential $CredentialLocal -ComputerName $computer.Name -Property Description -ErrorAction Continue
+        $localComputerSplat = @{
+            'class' = 'Win32_OperatingSystem';
+            'Credential' = $CredentialLocal;
+            'ComputerName' = $computer.Name;
+            'Property' = 'Description'; 
+            'ErrorAction' = Continue
+        }
+        $localComputer = Get-WmiObject @localComputerSplat
     }
 
     If ($localComputer -eq $Null) {## Couldn't connect to local computer to retrieve description, skip this computer
@@ -217,8 +237,6 @@ Switch ($updateMethod) {
         Write-Host "$activity`n"
 
         Set-ADComputerDescription $updateList $activity
-
-        Write-Host "Finished iterating through list of local computer descriptions with which to update AD`n" -ForegroundColor Green
     }
     '2' {
         Write-Host 'Selected option [2]'
@@ -259,9 +277,8 @@ Switch ($updateMethod) {
 
             Write-Host "`n`n`n"
         }
-
-        Write-Host "Finished iterating through list of local computer descriptions with which to update AD`n" -ForegroundColor Green
     }
 }
 
+Write-Host "Finished iterating through list of local computer descriptions with which to update AD`n" -ForegroundColor Green
 Stop-Transcript
